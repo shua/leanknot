@@ -24,4 +24,4 @@ Not quite sure about the following:
 [basic]: src/basic.lean
 [tangle]: src/tangle.lean
 [link]: src/link.lean
-[scratch]: src/scratch
+[scratch]: src/scratch.lean
