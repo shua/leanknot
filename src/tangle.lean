@@ -8,17 +8,17 @@ def is_tangle : wall → Prop
 def tangle := { w : wall // is_tangle w }
 
 namespace tangle
-def first : tangle → list brick
+@[simp] def first : tangle → list brick
 | ⟨bs::w, h⟩ := bs
 
-private def last' : list brick → wall → list brick
+@[simp] private def last' : list brick → wall → list brick
 | last [] := last
 | _ (bs::w) := last' bs w
-def last : tangle → list brick
+@[simp] def last : tangle → list brick
 | ⟨bs::w, h⟩ := last' bs w
 
-def domain (t : tangle) : ℕ := bricks.domain (first t)
-def codomain (t : tangle) : ℕ := bricks.codomain (last t)
+@[simp] def domain (t : tangle) : ℕ := bricks.domain (first t)
+@[simp] def codomain (t : tangle) : ℕ := bricks.codomain (last t)
 
 @[pattern] def single (bs : list brick) : tangle := ⟨[bs], trivial⟩
 @[pattern] def stack (bs : list brick) : Π (t : tangle), bricks.codomain bs = domain t → tangle

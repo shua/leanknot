@@ -6,28 +6,28 @@ inductive brick : Type
 | Undr : brick
 open brick
 
-definition brick.domain : brick → ℕ
+def brick.domain : brick → ℕ
 | Vert := 1
 | Cap := 0
 | Cup := 2
 | Over := 2
 | Undr := 2
 
-definition brick.codomain : brick → ℕ
+def brick.codomain : brick → ℕ
 | Vert := 1
 | Cap := 2
 | Cup := 0
 | Over := 2
 | Undr := 2
 
-definition bricks.domain (bs : list brick) : ℕ := list.foldr nat.add 0 (bs.map brick.domain)
-definition bricks.codomain (bs : list brick) : ℕ := list.foldr nat.add 0 (bs.map brick.codomain)
+@[simp] def bricks.domain (bs : list brick) : ℕ := list.foldr nat.add 0 (bs.map brick.domain)
+@[simp] def bricks.codomain (bs : list brick) : ℕ := list.foldr nat.add 0 (bs.map brick.codomain)
 
-definition wall : Type := list (list brick)
+def wall : Type := list (list brick)
 
 namespace planar_isotopy
 
-definition vert_bricks : ℕ → list brick
+def vert_bricks : ℕ → list brick
 | nat.zero := []
 | (nat.succ n) := Vert::(vert_bricks n)
 

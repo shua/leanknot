@@ -1,4 +1,5 @@
 import tangle
+import data.vector
 
 namespace tangle
 
@@ -23,122 +24,131 @@ if only one perm group at the end, then it's a knot
 -- should I be using l : list (fin N)?
 def permutation (N : ℕ) := { l : list ℕ // l.length = N ∧ ∀ n : ℕ, n < N → l.any (λ n', n = n') = tt }
 
+namespace permutation
 namespace id
-private def range : ℕ → list ℕ
-| nat.zero := []
-| (nat.succ n) := 0::(list.map nat.succ (range n))
-lemma append_l1_e_l2_is_append_l1_el2 {α} : ∀ (e : α) l1 l2, list.append (list.append l1 [e]) l2 = list.append l1 (e::l2) := begin
-	intro e, intro l1, induction l1,
-	case list.nil { intro l2, refl },
-	case list.cons {
-		intro l2, rw [list.append, list.append, list.append, l1_ih]
-	}
-end
-lemma range_core_pre : Π n l, list.range_core n l = list.append (list.range_core n []) l := begin
-	intro n,
-	induction n,
-	case nat.zero { intro l, refl },
-	case nat.succ {
-		intro l,
-		rw [list.range_core, list.range_core],
-		have h1 : list.range_core n_n (n_n::l) = list.append (list.range_core n_n []) (n_n::l), from n_ih (n_n::l),
-		have h2 : list.range_core n_n [n_n] = list.append (list.range_core n_n []) [n_n], from n_ih [n_n],
-		rw [h1, h2],
-		have h3 : ∀ l1 l2, list.append (list.append l1 [n_n]) l2 = list.append l1 (n_n::l2), from append_l1_e_l2_is_append_l1_el2 n_n,
-		rw [h3]
-	}
-end
-lemma range_sn_eq_append_range_n_n : Π n, range (nat.succ n) = list.append (range n) [n] := begin
-	intro n, induction n,
-	case nat.zero { rw [range, range, list.map, list.append] },
-	case nat.succ {
-		rw [range, n_ih],
-		have h1 : ∀ l, list.map nat.succ (list.append l [n_n]) = list.append (list.map nat.succ l) [(nat.succ n_n)], begin
-			intro, induction l,
-			case list.nil { simp },
-			case list.cons {
-				rw [list.map, list.append, list.append, list.map, l_ih]
-			},
-		end,
-		rw [h1, ←n_ih, ←list.append, range]
-	}
-end
-lemma prange_eq_range : Π n, range n = list.range n := begin
-	intro n, induction n,
-	case nat.zero { refl },
-	case nat.succ {
-		rw [list.range, list.range_core],
-		rw [range_core_pre, ←list.range, ←n_ih],
-		from range_sn_eq_append_range_n_n n_n,
-	}
-end
-lemma len_range_n_eq_n : Π n, list.length (list.range n) = n := begin
-	intro n,
-	have h : Π n, list.length (list.range n) = list.length (range n), intro n, rw prange_eq_range,
-	have hlen : list.length (range n) = n, begin
-		induction n,
-		case nat.zero { rw range, simp },
-		case nat.succ {
-			rw [range, list.length],
-			have hlenmap : Π {α} {β} (l : list α) (f : α → β), list.length (list.map f l) = list.length l, begin
-				intros,
-				induction l,
-				case list.nil { rw [list.map], refl },
-				case list.cons {
-					rw [list.map, list.length, l_ih, list.length]
-				}
-			end,
-			rw [hlenmap, n_ih]
+lemma range_n_length_eq_n : ∀ n, (list.range n).length = n := sorry
+lemma range_n_contains_all_lt_n : ∀ N n, n < N → (list.range N).any (λ n', n = n') = tt := sorry
+end id
+def id {N} : permutation N := ⟨list.range N, ⟨id.range_n_length_eq_n N, id.range_n_contains_all_lt_n N⟩⟩
+
+namespace append
+variables {N M : ℕ}
+variables (l₁ l₂ : list ℕ)
+lemma len_append_is_sum_len_addends : (l₁.append l₂).length = l₁.length + l₂.length := sorry
+lemma len_permappend_is_sum_len_addends (hl₁len : l₁.length = N) (hl₂len : l₂.length = M): (l₁.append (l₂.map (nat.add N))).length = N + M := begin
+	intros,
+	rw len_append_is_sum_len_addends,
+	have hlenmap : ∀ (l : list ℕ) α (f : ℕ -> α), (l.map f).length = l.length, begin
+		intro l, induction l,
+		case list.nil {
+			intro α, intro f, rw [list.map], refl
+		},
+		case list.cons {
+			intro α, intro f,
+			rw [list.map, list.length, list.length, l_ih],
 		}
 	end,
-	rw [h, hlen],
+	rw [hlenmap, hl₁len, hl₂len],
 end
+end append
 
-lemma all_nat_ge_zero : ∀ n : ℕ, n ≥ 0 := begin
-	intro n, induction n,
-	case nat.zero { rw [ge] },
-	case nat.succ {
-		rw [ge],
+def append {N M} : permutation N → permutation M → permutation (N + M)
+| ⟨ln, ⟨lnlen, lnelems⟩⟩ ⟨lm, ⟨lmlen, lmelems⟩⟩ := 
+	⟨ln.append (lm.map (nat.add N)), ⟨
+		permutation.append.len_permappend_is_sum_len_addends ln lm lnlen lmlen,
 		sorry
-		-- I don't know how to work out the cases of nat.less_than_or_equal
-		-- something about all the indirection from has_le.le is causing split/cases/rw to all fail
-	}
-end
-lemma ge_imp_not_lt : ∀ (a b : ℕ), a ≥ b → ¬ (a < b) := begin
-	intro a, intro b,
-	assume h,
-	have hnn : ¬ ¬ (a ≥ b), from not_not_intro h,
-	rw [lt_iff_not_ge], assumption
-end
-lemma all_le_nats_in_range : ∀ N n : ℕ, n < N → list.any (list.range N) (λ n', n = n') = tt := begin
-	intros, induction N,
-	case nat.zero {
-		have nge0 : n ≥ 0, from all_nat_ge_zero n,
-		have notlt0 : ¬ (n < 0), from ge_imp_not_lt n 0 nge0,
-		contradiction
-	},
-	case nat.succ {
-		have lt_or_eq : n < N_n ∨ n = N_n, begin
-			have nle : n ≤ N_n, sorry, -- could really use some direction on nat.less_than_or_equal_to
-			rw ←le_iff_lt_or_eq, assumption
+	⟩⟩
+
+namespace swap
+variables {N : ℕ}
+variables (l : list ℕ) {hllen : l.length = N} {hlelems : ∀ n, n < N → l.any (λ n', n = n') = tt}
+def list_swap (l : list ℕ) (hllen : l.length = N) : (fin N) → (fin N) → list ℕ := sorry
+-- likely list.update_nth is what we're looking for...
+lemma list_swap_len : ∀ (i j : fin N), (list_swap l hllen i j).length = N := sorry
+lemma list_swap_elems : ∀ (i j : fin N), ∀ n, n < N → (list_swap l hllen i j).any (λ n', n = n') = tt := sorry
+end swap
+
+def swap {N} (i j : fin N) : permutation N → permutation N
+| ⟨ln, ⟨lnlen, lnelems⟩⟩ := ⟨permutation.swap.list_swap ln lnlen i j, ⟨permutation.swap.list_swap_len ln i j, permutation.swap.list_swap_elems ln i j⟩⟩
+
+namespace compose
+variables {N : ℕ}
+variables (l₁ l₂ : list ℕ) {hl₁len : l₁.length = N} {hl₂len : l₂.length = N}
+def list_compose (l₁ l₂ : list ℕ) (h₁len : l₁.length = N) (hl₂len : l₂.length = N): list ℕ := sorry
+lemma list_compose_len : (list_compose l₁ l₂ hl₁len hl₂len).length = N := sorry
+lemma list_compose_elems : ∀ (n : ℕ), n < N → ((list_compose l₁ l₂ hl₁len hl₂len).any (λ n', n = n')) = tt := sorry
+end compose
+
+def compose {N} : permutation N → permutation N → permutation N
+| ⟨l₁, ⟨l₁len, l₁elems⟩⟩ ⟨l₂, ⟨l₂len, l₂elems⟩⟩ :=
+	⟨permutation.compose.list_compose l₁ l₂ l₁len l₂len, ⟨
+		permutation.compose.list_compose_len l₁ l₂,
+		permutation.compose.list_compose_elems l₁ l₂⟩⟩
+
+end permutation
+
+-- define links in terms of permutations
+/- with each layer/brick, there are three options
+1. introduce threads (cap)
+2. close threads (cup)
+3. permute threads (vert, over, undr)
+
+I think it'd be useful to keep track of permutation groups, and think of a tangle as
+`domain + 2*caps = codomain + 2*cups`
+with permutation size = `domain + 2*caps`
+there will be a cap list which maps n to n
+and a cup list which maps m to m
+
+finally linking number is # closed groups from the cap list and cup list of a link (domain = codomain = 0)
+and knot is linking number = 1
+-/
+open brick
+@[simp] def brick.cupnumber : brick → ℕ | Cup := 1 | _ := 0
+@[simp] def bricks.cupnumber : list brick → ℕ
+| [] := 0
+| (b::bs) := brick.cupnumber b + bricks.cupnumber bs
+@[simp] def wall.cupnumber : wall → ℕ
+| [] := 0
+| (bs::w) := bricks.cupnumber bs + wall.cupnumber w
+
+@[simp] def brick.capnumber : brick → ℕ | Cap := 1 | _ := 0
+@[simp] def bricks.capnumber : list brick → ℕ
+| [] := 0
+| (b::bs) := brick.capnumber b + bricks.capnumber bs
+@[simp] def wall.capnumber : wall → ℕ
+| [] := 0
+| (bs::w) := bricks.capnumber bs + wall.capnumber w
+
+theorem tangle_begin_eq_end : ∀ t : tangle, t.domain + 2 * wall.capnumber t.val = t.codomain + 2 * wall.cupnumber t.val := begin
+	intro t,
+	induction ht : t,
+	induction val,
+	case list.nil {
+		have hniltangle : ¬ is_tangle list.nil, begin
+			rw [is_tangle], contradiction
 		end,
-		cases lt_or_eq,
-		case or.inl {
-			have h : list.any (list.range N_n) (λ (n' : ℕ), to_bool (n = n')) = tt, from N_ih lt_or_eq,
-			have range_subset_succ : ∀ n p, (list.any (list.range n) p) = tt → (list.any (list.range (nat.succ n)) p) = tt, begin
-				intro n, intro p,
-				rw [list.any, list.any],
-				sorry -- may need to do (range n) ⊂ (range n+1) ?
-			end 
-		}
+		from absurd property hniltangle
+	},
+	case list.cons {
+		induction val_tl,
+		case list.nil {
+			induction val_hd,
+			case list.nil {
+				simp,
+			},
+			case list.cons {
+				-- ⟨[bs], _⟩.domain + 2 * wall.capnumber [bs] = ⟨[bs], _⟩.codomain + 2 * wall.cupnumber [bs]
+				-- is_tangle ⟨[b::bs], _⟩
+				-- ⟨[b::bs], _⟩.domain + 2 * wall.capnumber [b::bs] = ⟨[b::bs], _⟩.codomain + 2 * wall.cupnumber [b::bs]
+				-- I think cases on b?
+				induction val_hd_hd,
+				case brick.Vert {
+					simp, sorry
+				},
+				all_goals { sorry }
+			}
+		},
+		sorry
 	}
 end
-end id
-def permutation.id {N} : permutation N := ⟨list.range N, ⟨id.len_range_n_eq_n N, id.all_le_nats_in_range N⟩⟩
-
-def permutation.append {N M} : permutation N → permutation M → permutation (N + M) := sorry
-def permutation.swap {N} (i j : fin N) : permutation N → permutation N := sorry
-def permutation.compose {N} : permutation N → permutation N → permutation N := sorry
-
-
 end link
