@@ -102,22 +102,8 @@ and a cup list which maps m to m
 finally linking number is # closed groups from the cap list and cup list of a link (domain = codomain = 0)
 and knot is linking number = 1
 -/
-open brick
-@[simp] def brick.cupnumber : brick → ℕ | Cup := 1 | _ := 0
-@[simp] def bricks.cupnumber : list brick → ℕ
-| [] := 0
-| (b::bs) := brick.cupnumber b + bricks.cupnumber bs
-@[simp] def wall.cupnumber : wall → ℕ
-| [] := 0
-| (bs::w) := bricks.cupnumber bs + wall.cupnumber w
 
-@[simp] def brick.capnumber : brick → ℕ | Cap := 1 | _ := 0
-@[simp] def bricks.capnumber : list brick → ℕ
-| [] := 0
-| (b::bs) := brick.capnumber b + bricks.capnumber bs
-@[simp] def wall.capnumber : wall → ℕ
-| [] := 0
-| (bs::w) := bricks.capnumber bs + wall.capnumber w
+open brick
 
 theorem tangle_begin_eq_end : ∀ t : tangle, t.domain + 2 * wall.capnumber t.val = t.codomain + 2 * wall.cupnumber t.val := begin
 	intro t,
@@ -151,4 +137,43 @@ theorem tangle_begin_eq_end : ∀ t : tangle, t.domain + 2 * wall.capnumber t.va
 		sorry
 	}
 end
+
 end link
+
+namespace bricks
+open brick
+def ravel : (ℕ × list (list ℕ) × list ℕ) → (list brick) → ℕ × list (list ℕ) × list ℕ
+-- tangle cases
+| inpt [] := inpt
+| (Nin, eqin, n::inpts)    (Vert::bs) := let (Nout, eqout, outpts) := ravel (Nin, eqin, inpts) bs in (Nout, eqout, n::outpts)
+| (Nin, eqin, a::b::inpts) (Over::bs) := let (Nout, eqout, outpts) := ravel (Nin, eqin, inpts) bs in (Nout, eqout, b::a::outpts)
+| (Nin, eqin, a::b::inpts) (Undr::bs) := let (Nout, eqout, outpts) := ravel (Nin, eqin, inpts) bs in (Nout, eqout, b::a::outpts)
+| (Nin, eqin, inpts)       (Cap::bs)  := let (Nout, eqout, outpts) := ravel (nat.succ Nin, eqin, inpts) bs in (Nout, eqout, Nin::Nin::outpts)
+| (Nin, eqin, a::b::inpts) (Cup::bs)  :=                              ravel (Nin, [a,b]::eqin, inpts) bs
+-- general cases
+| (Nin, eqin, [])          (Vert::bs) := let (Nout, eqout, outpts) := ravel ((nat.succ Nin), eqin, []) bs in (Nout, eqout, Nin::outpts)
+| (Nin, eqin, [])          (Cup::bs)  :=                              ravel ((nat.succ Nin), eqin, []) bs
+| (Nin, eqin, [])          (Over::bs) := let (Nout, eqout, outpts) := ravel (Nin + 2, eqin, [])        bs in (Nout, eqout, (nat.succ Nin)::Nin::outpts)
+| (Nin, eqin, [])          (Undr::bs) := let (Nout, eqout, outpts) := ravel (Nin + 2, eqin, [])        bs in (Nout, eqout, (nat.succ Nin)::Nin::outpts)
+| (Nin, eqin, [n])         (Cup::bs)  :=                              ravel ((nat.succ Nin), [Nin,n]::eqin, []) bs
+| (Nin, eqin, [n])         (Over::bs) := let (Nout, eqout, outpts) := ravel (nat.succ Nin, eqin, [])   bs in (Nout, eqout, Nin::n::outpts)
+| (Nin, eqin, [n])         (Undr::bs) := let (Nout, eqout, outpts) := ravel (nat.succ Nin, eqin, [])   bs in (Nout, eqout, Nin::n::outpts)
+
+end bricks
+namespace wall
+def ravel : wall → (ℕ × list (list ℕ) × list ℕ) → ℕ × list (list ℕ) × list ℕ
+| []      inpts := inpts
+| (bs::w) inpts := ravel w (bricks.ravel inpts bs)
+end wall
+
+theorem ravel_tangle_has_no_loose_threads : ∀ t : tangle, (t.val.ravel (0, [], [])).fst = t.domain + t.val.capnumber := begin
+	-- for each two rows (a,b) in a tangle, the a.domain = b.codomain, thus the only way to introduce threads is the first row of the tangle, or with caps
+	sorry
+end
+
+def equiv_groups : list (list ℕ) → list (list ℕ) := sorry
+-- take a list of pairs of nats, and create a list of lists of nats such that forall a,b in pairs, there is exactly one group in the output that contains a,b
+
+def braid := { w : wall // is_tangle w ∧ w.capnumber = 0 ∧ w.cupnumber = 0 }
+namespace braid
+end braid

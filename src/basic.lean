@@ -23,7 +23,15 @@ def brick.codomain : brick → ℕ
 @[simp] def bricks.domain (bs : list brick) : ℕ := list.foldr nat.add 0 (bs.map brick.domain)
 @[simp] def bricks.codomain (bs : list brick) : ℕ := list.foldr nat.add 0 (bs.map brick.codomain)
 
+instance brick_has_decidable_eq : decidable_eq brick := by tactic.mk_dec_eq_instance
+@[simp] def bricks.count (bs : list brick) (b0 : brick) : ℕ := list.length (list.filter (eq b0) bs)
+
 def wall : Type := list (list brick)
+
+@[simp] def wall.count (w : wall) (b0 : brick): ℕ := list.foldr nat.add 0 (list.map (λ bs, bricks.count bs b0) w)
+
+@[simp] def wall.cupnumber (w : wall) : ℕ := w.count Cup
+@[simp] def wall.capnumber (w : wall) : ℕ := w.count Cap
 
 namespace planar_isotopy
 
