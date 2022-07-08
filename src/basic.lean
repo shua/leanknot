@@ -1,3 +1,7 @@
+/-
+Define brick as the type of the generating tangles.
+-/
+
 inductive brick : Type
 | Vert : brick
 | Cap : brick
@@ -26,6 +30,9 @@ def brick.codomain : brick → ℕ
 instance brick_has_decidable_eq : decidable_eq brick := by tactic.mk_dec_eq_instance
 @[simp] def bricks.count (bs : list brick) (b0 : brick) : ℕ := list.length (list.filter (eq b0) bs)
 
+/-
+Define wall as a vertically-arranged collection of collections of horizontally-arraged bricks.
+-/
 def wall : Type := list (list brick)
 
 @[simp] def wall.count (w : wall) (b0 : brick): ℕ := list.foldr nat.add 0 (list.map (λ bs, bricks.count bs b0) w)
