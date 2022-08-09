@@ -1,4 +1,8 @@
 *.olean
+lean3/_target
 /_target
 /leanpkg.path
 README.html
+/build
+/lean_packages/*
+!/lean_packages/manifest.json
