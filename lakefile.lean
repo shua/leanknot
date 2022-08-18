@@ -1,15 +1,19 @@
 import Lake
 open Lake DSL
 
-package «».«» {
+package knot {
   -- add package configuration options here
 }
 
-lean_lib «».«» {
-  -- add library configuration options here
-}
+lean_lib Knot {}
 
-@[defaultTarget]
-lean_exe «».«» {
-  root := `Main
-}
+lean_lib Basic {}
+
+lean_lib Tangle {}
+
+lean_lib Link {}
+
+--@[defaultTarget]
+--lean_exe knot {
+--  root := `Main
+--}
