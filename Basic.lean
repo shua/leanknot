@@ -4,6 +4,7 @@ inductive Brick : Type
   | Cup : Brick
   | Over : Brick
   | Under : Brick
+  deriving BEq, DecidableEq
 open Brick
 
 /-- input threads -/
@@ -21,38 +22,6 @@ def Brick.codomain : Brick → Nat
   | Cup => 0
   | Over => 2
   | Under => 2
-
-namespace Brick
--- these are borrowed from Nat's proof for decEq
--- I'm not really sure why it works, but it does, I really feel like this could have been simpler?
-def beq : Brick → Brick → Bool
-  | Vert, Vert => true
-  | Cap, Cap => true
-  | Cup, Cup => true
-  | Over, Over => true
-  | Under, Under => true
-  | _, _ => false
-theorem beq_true_implies_eq : {a b : Brick} -> (Eq (Brick.beq a b) true) -> (Eq a b)
-  | Vert, Vert, _ => rfl
-  | Cap, Cap, _ => rfl
-  | Cup, Cup, _ => rfl
-  | Over, Over, _ => rfl
-  | Under, Under, _ => rfl
-theorem beq_false_implies_ne : {a b : Brick} -> (Eq (Brick.beq a b) false) -> Not (Eq a b)
-  | Vert, Vert, h₁, _ => Bool.noConfusion h₁
-  | Cap, Cap, h₁, _ => Bool.noConfusion h₁
-  | Cup, Cup, h₁, _ => Bool.noConfusion h₁
-  | Over, Over, h₁, _ => Bool.noConfusion h₁
-  | Under, Under, h₁, _ => Bool.noConfusion h₁
-def decEq (a b : Brick) : Decidable (Eq a b) :=
-  match h : beq a b with
-  | true => isTrue (beq_true_implies_eq h)
-  | false => isFalse (beq_false_implies_ne h)
-
-instance : BEq Brick where beq := beq
-instance : DecidableEq Brick := decEq
-
-end Brick
 
 
 def Bricks : Type := List Brick

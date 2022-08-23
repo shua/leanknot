@@ -10,8 +10,8 @@ Currently planning on:
 - [ ] inductive notion of tangle equivalency (will allow greater application of r-move and planar iso equiv)
 - [x] proof of tangle invariance across notions of equivalence [tangle]
 - [x] definition of link [link]
-- [ ] definition of knot
-- [x] definition of braid [scratch]
+- [x] definition of knot [link]
+- [x] definition of braid [braid]
 - [ ] definition of permutation, proof that braid is a permutation
 
 Not quite sure about the following:
@@ -21,7 +21,7 @@ Not quite sure about the following:
 - [ ] HOMFLY/Jones polynomials
 
 
-[basic]: src/basic.lean
-[tangle]: src/tangle.lean
-[link]: src/link.lean
-[scratch]: src/scratch.lean
+[basic]: Basic.lean
+[tangle]: Tangle.lean
+[link]: Link.lean
+[braid]: Braid.lean

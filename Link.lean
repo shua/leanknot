@@ -44,10 +44,10 @@ namespace Link
 
 def tangle (l : Link) : Tangle := ⟨l.val, link_is_tangle l.property⟩
 
-def linkNumber (l : Link) : Nat := l.tangle.threadCount
+def link_number (l : Link) : Nat := l.tangle.thread_count
 
 end Link
 
 -- here it is folks
-def Knot := { l : Link // l.linkNumber = 1 }
+def Knot := { l : Link // l.link_number = 1 }
 
