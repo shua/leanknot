@@ -1,5 +1,6 @@
 import Basic
 import Tangle
+import Graph
 
 open Brick
 
@@ -13,36 +14,31 @@ def isLink : Wall -> Prop
 
 def Link := { w : Wall // isLink w }
 
-def link_is_tangle_aux : {w : Wall} → isLink' w → isTangle w := by
-  intro w
-  induction w
-  case nil => intro; rfl
-  case cons bs w h =>
-    cases w
-    case nil => intro; rfl
-    case cons bs' w =>
-      rw [isLink']
-      intro hl
-      have hlr : isLink' (bs' :: w) := And.right hl
-      have htr : isTangle (bs' :: w) := h hlr
-      have htl : Bricks.codomain bs = Bricks.domain bs' := And.left hl
-      rw [isTangle]
-      apply And.intro htl htr
-
-def link_is_tangle : {w : Wall} → isLink w → isTangle w := by
-  intro w
-  cases w
-  case nil => intro; rfl
-  case cons bs w =>
-    rw [isLink]
-    simp
-    intro hl
-    have hl' : isLink' (bs::w) := And.right hl
-    apply link_is_tangle_aux hl'
-
 namespace Link
 
-def tangle (l : Link) : Tangle := ⟨l.val, link_is_tangle l.property⟩
+theorem is_tangle_aux {w : Wall} : isLink' w → isTangle w := by
+  induction w with
+  | nil => intro; rfl
+  | cons bs w h =>
+    cases w with
+    | nil => intro; rfl
+    | cons bs' w =>
+      rewrite [isLink', isTangle]
+      intro hl
+      exact And.intro hl.left (h hl.right)
+
+theorem is_tangle {w : Wall} : isLink w → isTangle w := by
+  cases w with
+  | nil => intro; rfl
+  | cons bs w =>
+    rewrite [isLink]
+    -- again don't know how to go from (match true | true => a) to just a
+    simp
+    intro hl
+    exact is_tangle_aux hl.right
+
+
+def tangle (l : Link) : Tangle := ⟨l.val, is_tangle l.property⟩
 
 def link_number (l : Link) : Nat := l.tangle.thread_count
 

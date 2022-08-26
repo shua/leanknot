@@ -36,8 +36,6 @@ def Bricks.domain (bs : Bricks) : Nat := List.foldr Nat.add 0 (bs.map Brick.doma
 /-- output threads -/
 def Bricks.codomain (bs : Bricks) : Nat := List.foldr Nat.add 0 (bs.map Brick.codomain)
 
-def Bricks.count (bs : Bricks) (b : Brick) : Nat := List.length (List.filter (· == b) bs)
-
 @[simp] theorem Bricks.domain_head_plus_domain_tail_eq_domain : Bricks.domain (b::bs) = b.domain + Bricks.domain bs := by
   rewrite [domain, List.map, List.foldr, ←domain]
   apply Nat.add_eq
@@ -47,11 +45,6 @@ def Bricks.count (bs : Bricks) (b : Brick) : Nat := List.length (List.filter (·
 
 
 def Wall : Type := List Bricks
-
-def Wall.count (w : Wall) (b : Brick) : Nat := List.foldr Nat.add 0 (List.map (fun bs => Bricks.count bs b) w)
-
-def Wall.cupNumber (w : Wall) : Nat := w.count Cup
-def Wall.capNumber (w : Wall) : Nat := w.count Cap
 
 def Wall.sliceBegin : Wall → Nat → Wall
   | [], _ => []
