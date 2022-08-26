@@ -7,6 +7,11 @@ inductive Brick : Type
   deriving BEq, DecidableEq
 open Brick
 
+-- stolen from Bool LawfulBEq impl
+instance instLawfulEqBrick : LawfulBEq Brick where
+  eq_of_beq {a b} h := by cases a <;> cases b <;> first | rfl | contradiction
+  rfl {a} := by cases a <;> decide
+
 /-- input threads -/
 def Brick.domain : Brick → Nat
   | Vert => 1
@@ -33,6 +38,13 @@ def Bricks.codomain (bs : Bricks) : Nat := List.foldr Nat.add 0 (bs.map Brick.co
 
 def Bricks.count (bs : Bricks) (b : Brick) : Nat := List.length (List.filter (· == b) bs)
 
+@[simp] theorem Bricks.domain_head_plus_domain_tail_eq_domain : Bricks.domain (b::bs) = b.domain + Bricks.domain bs := by
+  rewrite [domain, List.map, List.foldr, ←domain]
+  apply Nat.add_eq
+@[simp] theorem Bricks.codomain_head_plus_codomain_tail_eq_codomain : Bricks.codomain (b::bs) = b.codomain + Bricks.codomain bs := by
+  rewrite [codomain, List.map, List.foldr, ←codomain]
+  apply Nat.add_eq
+
 
 def Wall : Type := List Bricks
 
@@ -50,18 +62,23 @@ def Wall.sliceEnd : Wall → Nat → Wall
   | bs::w, i => if w.length > i then bs::(Wall.sliceEnd w i) else []
 def Wall.slice (w : Wall) (i j : Nat) : Wall := Wall.sliceBegin (Wall.sliceEnd w j) i
 
+def Wall.happend : (a b : Wall) → (a.length = b.length) →  Wall
+  | [], [], _ => []
+  | a::as, bs, h => match bs with
+      | b::bs => (a.append b)::(Wall.happend as bs (by simp [List.length] at h; exact h))
+      | [] => by simp at h
 
-namespace PlanarIsotopy
-def vert_bricks : Nat → Bricks
-  | Nat.zero => []
-  | Nat.succ n' => Brick.Vert :: (vert_bricks n')
+
+namespace Equivalence
+def vert_bricks (n : Nat) : Bricks := List.replicate n Vert
 
 theorem verts_dom_eq_codom (n : Nat) : (vert_bricks n).domain = (vert_bricks n).codomain := by
-  induction n <;> rewrite [vert_bricks, Bricks.domain, Bricks.codomain, List.map, List.foldr, List.map, List.foldr]
-  case zero => apply Eq.refl
-  case succ n h =>
-    rewrite [←Bricks.domain, ←Bricks.codomain, h]
-    simp [Brick.domain, Brick.codomain]
+  induction n with
+  | zero => simp
+  | succ _ h =>
+    simp [vert_bricks, List.replicate, Brick.domain, Brick.codomain]
+    rewrite [←vert_bricks, h]
+    rfl
 
 /--
 Planar isotopic mappings
@@ -70,21 +87,25 @@ Planar isotopic mappings
      |  .". |  |  | .".  | |  .". | |  | |  | | .".
      |  | '.'  |  '.' |  '/.  | .\' |  '/.  | .\' |
                          | |  | | '.'  | |  '.' | |
+
+     slide
+     . . .    . . .
+     #######  | | |
+     | | | |  #######
+     ' ' ' '  ' ' ' '
 -/
-inductive Map : Wall → Wall → Type
-  | vertcl : Map [[Vert],[Vert]] [[Cap,Vert],[Vert,Cup]]
-  | vertcc : Map [[Vert],[Vert]] [[Vert,Cap],[Cup,Vert]]
-  | crosscl : Map [[Vert,Vert],[Under],[Vert,Vert]] [[Cap,Vert,Vert],[Vert,Over,Vert],[Vert,Vert,Cup]]
-  | crosscc : Map [[Vert,Vert],[Under],[Vert,Vert]] [[Vert,Vert,Cap],[Vert,Over,Vert],[Cup,Vert,Vert]]
-  | stretch : ∀ a b, Map [a,b] [a, vert_bricks (Bricks.codomain a), b]
-  | inv : ∀ a b, Map b a → Map a b
-  | compose : ∀ a b c, Map a b → Map b c → Map a c
+inductive PlanarIsotopic : Wall → Wall → Prop
+  | vertcl : PlanarIsotopic [[Vert],[Vert]] [[Cap,Vert],[Vert,Cup]]
+  | vertcc : PlanarIsotopic [[Vert],[Vert]] [[Vert,Cap],[Cup,Vert]]
+  | crosscl : PlanarIsotopic [[Vert,Vert],[Under],[Vert,Vert]] [[Cap,Vert,Vert],[Vert,Over,Vert],[Vert,Vert,Cup]]
+  | crosscc : PlanarIsotopic [[Vert,Vert],[Under],[Vert,Vert]] [[Vert,Vert,Cap],[Vert,Over,Vert],[Cup,Vert,Vert]]
+  | slide : PlanarIsotopic [a, vert_bricks (Bricks.codomain a)] [vert_bricks (Bricks.domain a), a]
+  -- equiv relation
+  | id : PlanarIsotopic a a
+  | symm : PlanarIsotopic b a → PlanarIsotopic a b
+  | trans : PlanarIsotopic a b → PlanarIsotopic b c → PlanarIsotopic a c
 
-end PlanarIsotopy
-
-
-namespace Reidemeister
-
+-- TODO: should this just be free functions? Should this really be a Prop or equivalence relation?
 /--
 Reidemeister moves
 
@@ -104,22 +125,38 @@ Reidemeister moves
                                  | '/.  '/. |
                                  .\' |  | '/.
 -/
-inductive Move : Wall → Wall → Type
-  | type1a : Move [[Cap], [Vert, Vert]]  [[Cap], [Over]]
-  | type1b : Move [[Cap], [Vert, Vert]]  [[Cap], [Under]]
-  | type1c : Move [[Vert, Vert], [Cup]]  [[Over], [Cup]]
-  | type1d : Move [[Vert, Vert], [Cup]]  [[Under], [Cup]]
-  | type2a : Move [[Vert, Vert], [Vert, Vert]]  [[Over], [Under]]
-  | type2b : Move [[Vert, Vert], [Vert, Vert]]  [[Under], [Over]]
-  | type3a : Move [[Over, Vert], [Vert, Over], [Under, Vert]]
+inductive ReidemeisterMove : Wall → Wall → Prop
+  | type1a : ReidemeisterMove [[Cap], [Vert, Vert]]  [[Cap], [Over]]
+  | type1b : ReidemeisterMove [[Cap], [Vert, Vert]]  [[Cap], [Under]]
+  | type1c : ReidemeisterMove [[Vert, Vert], [Cup]]  [[Over], [Cup]]
+  | type1d : ReidemeisterMove [[Vert, Vert], [Cup]]  [[Under], [Cup]]
+  | type2a : ReidemeisterMove [[Vert, Vert], [Vert, Vert]]  [[Over], [Under]]
+  | type2b : ReidemeisterMove [[Vert, Vert], [Vert, Vert]]  [[Under], [Over]]
+  | type3a : ReidemeisterMove [[Over, Vert], [Vert, Over], [Under, Vert]]
                   [[Vert, Under], [Over, Vert], [Vert, Over]]
-  | type3b : Move [[Under, Vert], [Vert, Under], [Under, Vert]]
+  | type3b : ReidemeisterMove [[Under, Vert], [Vert, Under], [Under, Vert]]
                   [[Vert, Under], [Under, Vert], [Vert, Under]]
-  | type3c : Move [[Over, Vert], [Vert, Over], [Over, Vert]]
+  | type3c : ReidemeisterMove [[Over, Vert], [Vert, Over], [Over, Vert]]
                   [[Vert, Over], [Over, Vert], [Vert, Over]]
-  | type3d : Move [[Under, Vert], [Vert, Under], [Over, Vert]]
+  | type3d : ReidemeisterMove [[Under, Vert], [Vert, Under], [Over, Vert]]
                   [[Vert, Over], [Under, Vert], [Vert, Under]]
-  | rev : ∀ a b, Move b a → Move a b
-  | compose : ∀ a b c, Move a b → Move b c → Move a c
+  -- equiv
+  | id : ReidemeisterMove a a
+  | symm : ReidemeisterMove a b → ReidemeisterMove b a
+  | trans : ReidemeisterMove a b → ReidemeisterMove b c → ReidemeisterMove a c
 
-end Reidemeister
+inductive Homotopic : Wall → Wall → Prop
+  | planar : PlanarIsotopic a b → Homotopic a b
+  | rmove : ReidemeisterMove a b → Homotopic a b
+  -- surgery
+  | top : Homotopic a b → (c : Wall) → Homotopic (a.append c) (b.append c)
+  | bottom : Homotopic a b → (c : Wall) → Homotopic (c.append a) (c.append b)
+  | right : Homotopic a b → (c : Wall) → (h : a.length = c.length ∧ b.length = c.length) → Homotopic (a.happend c h.left) (b.happend c h.right)
+  | left : Homotopic a b → (c : Wall) → (h : c.length = a.length ∧ c.length = b.length) → Homotopic (c.happend a h.left) (c.happend b h.right)
+  -- equiv
+  | id : Homotopic a a
+  | symm : Homotopic a b → Homotopic b a
+  | trans : Homotopic a b → Homotopic b c → Homotopic a c
+
+end Equivalence
+
