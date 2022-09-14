@@ -29,14 +29,16 @@ def Brick.codomain : Brick → Nat
   | Under => 2
 
 /-- 180° rotation -/
-def Brick.rotate : Brick → Brick
+def Brick.vflip : Brick → Brick
   | Vert => Vert
   | Cap => Cup
   | Cup => Cap
   | Over => Over
   | Under => Under
 
-theorem Brick.rotate_flips_domain (b : Brick) : b.rotate.domain = b.codomain ∧ b.rotate.codomain = b.domain := by
+def Brick.hflip : Brick → Brick := id
+
+theorem Brick.vflip_boundary (b : Brick) : b.vflip.domain = b.codomain ∧ b.vflip.codomain = b.domain := by
   cases b <;> simp
 
 
@@ -54,27 +56,8 @@ def Bricks.codomain (bs : Bricks) : Nat := List.foldr Nat.add 0 (bs.map Brick.co
   rewrite [codomain, List.map, List.foldr, ←codomain]
   apply Nat.add_eq
 
-def Bricks.rotate (bs : Bricks) : Bricks := (List.map Brick.rotate bs).reverse
-
-theorem Bricks.domain_eq_reverse_domain (bs : Bricks) : Bricks.domain bs.reverse = bs.domain ∧ Bricks.codomain bs.reverse = bs.codomain := by
-  induction bs with
-  | nil => simp
-  | cons b bs h =>
-      sorry
-theorem Bricks.rotate_flips_domain (bs : Bricks) : bs.rotate.domain = bs.codomain ∧ bs.rotate.codomain = bs.domain := by
-  induction bs with
-  | nil => simp
-  | cons b bs h =>
-    rewrite [rotate, List.map]
-    have bsrot := Bricks.domain_eq_reverse_domain (b.rotate :: (bs.map Brick.rotate))
-    rewrite [bsrot.left, bsrot.right]
-    simp
-    have bflip := Brick.rotate_flips_domain b
-    rewrite [bflip.left, bflip.right]
-    have bsrot := Bricks.domain_eq_reverse_domain (bs.map Brick.rotate)
-    rewrite [←bsrot.left, ←bsrot.right, ←Bricks.rotate, h.left, h.right]
-    simp
-
+def Bricks.vflip (bs : Bricks) : Bricks := List.map Brick.vflip bs
+def Bricks.hflip (bs : Bricks) : Bricks := (List.map Brick.hflip bs).reverse
 
 def Wall : Type := List Bricks
 
@@ -93,7 +76,8 @@ def Wall.happend : (a b : Wall) → (a.length = b.length) →  Wall
       | b::bs => (a.append b)::(Wall.happend as bs (by simp [List.length] at h; exact h))
       | [] => by simp at h
 
-def Wall.rotate (w : Wall) : Wall := (List.map Bricks.rotate w).reverse
+def Wall.vflip (w : Wall) : Wall := (List.map Bricks.vflip w).reverse
+def Wall.hflip (w : Wall) : Wall := (List.map Bricks.hflip w)
 
 
 namespace Equivalence
@@ -127,12 +111,7 @@ inductive PlanarIsotopic : Wall → Wall → Prop
   | crosscl : PlanarIsotopic [[Vert,Vert],[Under],[Vert,Vert]] [[Cap,Vert,Vert],[Vert,Over,Vert],[Vert,Vert,Cup]]
   | crosscc : PlanarIsotopic [[Vert,Vert],[Under],[Vert,Vert]] [[Vert,Vert,Cap],[Vert,Over,Vert],[Cup,Vert,Vert]]
   | slide : PlanarIsotopic [a, vert_bricks (Bricks.codomain a)] [vert_bricks (Bricks.domain a), a]
-  -- equiv relation
-  | id : PlanarIsotopic a a
-  | symm : PlanarIsotopic b a → PlanarIsotopic a b
-  | trans : PlanarIsotopic a b → PlanarIsotopic b c → PlanarIsotopic a c
 
--- TODO: should this just be free functions? Should this really be a Prop or equivalence relation?
 /--
 Reidemeister moves
 
@@ -167,31 +146,6 @@ inductive ReidemeisterMove : Wall → Wall → Prop
                   [[Vert, Over], [Over, Vert], [Vert, Over]]
   | type3d : ReidemeisterMove [[Under, Vert], [Vert, Under], [Over, Vert]]
                   [[Vert, Over], [Under, Vert], [Vert, Under]]
-  -- equiv
-  | id : ReidemeisterMove a a
-  | symm : ReidemeisterMove a b → ReidemeisterMove b a
-  | trans : ReidemeisterMove a b → ReidemeisterMove b c → ReidemeisterMove a c
-
-inductive LocalHomotopic : Wall → Wall → Prop
-  | planar : PlanarIsotopic a b → LocalHomotopic a b
-  | rmove : ReidemeisterMove a b → LocalHomotopic a b
-  -- surgery
-  | top : LocalHomotopic a b → (c : Wall) → LocalHomotopic (a.append c) (b.append c)
-  | bottom : LocalHomotopic a b → (c : Wall) → LocalHomotopic (c.append a) (c.append b)
-  | right : LocalHomotopic a b → (c : Wall) → (h : a.length = c.length ∧ b.length = c.length) → LocalHomotopic (a.happend c h.left) (b.happend c h.right)
-  | left : LocalHomotopic a b → (c : Wall) → (h : c.length = a.length ∧ c.length = b.length) → LocalHomotopic (c.happend a h.left) (c.happend b h.right)
-  -- equiv
-  | id : LocalHomotopic a a
-  | symm : LocalHomotopic a b → LocalHomotopic b a
-  | trans : LocalHomotopic a b → LocalHomotopic b c → LocalHomotopic a c
-
-inductive Homotopic : Wall → Wall → Prop
-  | surgery : LocalHomotopic a b → Homotopic a b
-  | rotate : Homotopic a a.rotate
-  -- equiv
-  | id : LocalHomotopic a a
-  | symm : LocalHomotopic a b → LocalHomotopic b a
-  | trans : LocalHomotopic a b → LocalHomotopic b c → LocalHomotopic a c
 
 end Equivalence
 
