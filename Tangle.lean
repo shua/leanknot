@@ -15,38 +15,60 @@ namespace Tangle
 def domain (t : Tangle) : Nat := match t.val with
   | [] => 0
   | bs::_ => bs.domain
-@[inline] def last_codomain : Wall → Nat
+def codomain (t : Tangle) : Nat := match t.val with
   | [] => 0
-  | [bs] => bs.codomain
-  | _::bs'::w => last_codomain (bs'::w)
-def codomain (t : Tangle) : Nat := last_codomain t.val
+  | hd::tl => Bricks.codomain (tl.getLastD hd)
 
-theorem cons_tangle_tl { hd : Bricks } { tl : Wall } (ht : isTangle (hd::tl)) : isTangle tl := by
+theorem cons_tangle_tl : isTangle (hd::tl) → isTangle tl := by
+  intro t
   cases tl with
-  | nil => simp [isTangle]
-  | cons hd' tl => rewrite [isTangle] at ht; exact ht.right
+  | nil => rfl
+  | cons => exact t.right
 
-theorem append_tangle_fst { a b : Wall } (ht : isTangle (List.append a b)) : isTangle a := by
-  sorry
-
-theorem append_tangle_snd { a b : Wall } (ht : isTangle (List.append a b)) : isTangle b := by
+theorem append_tangle_fst : isTangle (a ++ b) → isTangle a := by
+  intro t
   induction a with
-  | nil => rewrite [List.append] at ht; exact ht
-  | cons hd tl hind =>
-    rewrite [List.append] at ht
-    cases tl with
-    | nil =>
-      rewrite [List.append] at ht
-      cases b with
+  | nil => rfl
+  | cons _ tl h => cases tl with
+    | nil => rfl
+    | cons => exact And.intro t.left (h t.right)
+theorem append_tangle_snd : isTangle (a ++ b) → isTangle b := by
+  intro t
+  induction a with
+  | nil => exact t
+  | cons hd tl hind => cases tl with
+    | nil => cases b with
       | nil => rfl
-      | cons =>
-        rewrite [isTangle] at ht
-        exact ht.right
-    | cons =>
-      rewrite [List.append, isTangle] at ht
-      exact hind (ht.right)
+      | cons => exact t.right
+    | cons => exact hind t.right
 
-theorem last_codomain_append_nempty_snd : (as bs : Wall) → (hne : bs ≠ []) → last_codomain (List.append as bs) = last_codomain bs := sorry
+theorem codomain_append {a b : Wall} {ht : isTangle (a ++ b)} : b ≠ [] → Tangle.codomain ⟨a ++ b, ht⟩ = Tangle.codomain ⟨b, append_tangle_snd ht⟩ := by
+  intros
+  cases a with
+  | nil => simp
+  | cons =>
+    cases b with
+    | nil => contradiction
+    | cons =>
+      simp [Tangle.codomain]
+      -- there's very litte in stdlib for getLast proofs
+      have last_append_cons {α : Type} {hd j: α} {tl k: List α} : List.getLastD (k++(hd::tl)) j = List.getLastD tl hd := by
+        have get_last_d_cons {α : Type} {hd j: α} {tl : List α} : List.getLastD (hd::tl) j = List.getLastD tl hd := by
+          induction tl with
+          | nil => simp [List.getLastD, List.getLast]
+          | cons => simp [List.getLastD, List.getLast]
+        revert j
+        induction k with
+        | nil => simp [get_last_d_cons]
+        | cons _ _ h =>
+          intro
+          rewrite [List.cons_append, get_last_d_cons, h]
+          rfl
+      rewrite [last_append_cons]
+      rfl
+
+@[simp] theorem codomain_append_cons : {a : List Bricks} → {ht: isTangle (a ++ (hd::b))} →
+  Tangle.codomain ⟨a ++ (hd::b), ht⟩ = Tangle.codomain ⟨hd::b, append_tangle_snd ht⟩ := Tangle.codomain_append List.noConfusion
 
 def happend_tangle : (a b : Wall) → (hlen : a.length = b.length) → isTangle a → isTangle b → isTangle (Wall.happend a b hlen) := by
   intro a
@@ -78,21 +100,56 @@ def happend (a b : Tangle) (hlen : a.val.length = b.val.length) : Tangle where
   val := Wall.happend a.val b.val hlen
   property := happend_tangle a.val b.val hlen a.property b.property
 
-def happend_left_tangle {a b : Wall} {hlen : a.length = b.length} : isTangle (Wall.happend a b hlen) → isTangle a → isTangle b := by
+theorem happend_cons_tangle: isTangle (Wall.happend (a'::a) (b'::b) hlen') → isTangle (Wall.happend a b hlen) := by sorry
+theorem happend_left_tangle {a b : Wall} {hlen : a.length = b.length} : isTangle (Wall.happend a b hlen) → isTangle a → isTangle b := by
+  revert b
+  induction a with
+  | nil => intro b; intros; cases b <;> trivial
+  | cons ahd a h =>
+    intro b; cases b <;> intros <;> try { trivial }
+    case cons bhd b hlen _ _ =>
+    -- need to prove (isTangle ((ahd::a).happend (bhd::b))) → isTangle (ahd::a) → isTangle b → isTangle (bhd::b)
+    cases a <;> cases b <;> try { simp at hlen; trivial }
+    case cons ahd' a ta bhd' b tapp =>
+    have h := by
+      have hlen' : (ahd'::a).length = (bhd'::b).length := by
+        rewrite [List.length] at hlen
+        have hlen := Eq.symm hlen; rewrite [List.length] at hlen
+        exact (Nat.add_right_cancel (Eq.symm hlen))
+      exact @h _ hlen' (happend_cons_tangle tapp) ta.right
+
+    -- have isTangle (bhd'::b), need to prove bhd.codomain = bhd'.domain
+    have tbl : bhd.codomain = bhd'.domain := by
+      have tappl := tapp.left
+      simp at tappl
+      rewrite [Bricks.codomain_append, Bricks.domain_append] at tappl
+      rewrite [ta.left] at tappl
+      exact (Nat.add_left_cancel tappl)
+
+    exact And.intro tbl h
+
+theorem happend_right_tangle {a b : Wall} {hlen : a.length = b.length} : isTangle (Wall.happend a b hlen) → isTangle b → isTangle a := by
   sorry
-def happend_right_tangle {a b : Wall} {hlen : a.length = b.length} : isTangle (Wall.happend a b hlen) → isTangle b → isTangle a := by
-  sorry
+
+@[simp] theorem wall_happend {w : Wall} {t : Tangle} {hlen : w.length = t.val.length} {tapp : isTangle (w.happend t.val hlen)}:
+  ⟨(w.happend t.val hlen), tapp⟩ = Tangle.happend ⟨w, (happend_right_tangle tapp t.property)⟩ t hlen
+:= sorry
+@[simp] theorem happend_wall {w : Wall} {t : Tangle} {hlen : t.val.length = w.length} {tapp : isTangle (t.val.happend w hlen)}:
+  ⟨(t.val.happend w hlen), tapp⟩ = Tangle.happend t ⟨w, (happend_left_tangle tapp t.property)⟩ hlen
+:= sorry
+
+@[simp] theorem domain_happend_add {a b : Tangle} {hlen: a.val.length = b.val.length}: 
+  Tangle.domain (a.happend b hlen) = Tangle.domain a + Tangle.domain b := by sorry
+@[simp] theorem codomain_happend_add {a b : Tangle} {hlen: a.val.length = b.val.length}:
+  Tangle.codomain (a.happend b hlen) = Tangle.codomain a + Tangle.codomain b := by sorry
 
 end Tangle
-
--- weirdly this is named List.List.append_eq ??
-theorem List.append_eq : {α : Type} → (as bs : List α) → List.append as bs = as ++ bs := List.List.append_eq
 
 namespace Equivalence
 
 inductive Surgery : Wall → Wall → Prop
-  | top : Surgery a b → (c : Wall) → Surgery (a.append c) (b.append c)
-  | bottom : Surgery a b → (c : Wall) → Surgery (c.append a) (c.append b)
+  | top : Surgery a b → (c : Wall) → Surgery (a ++ c) (b ++ c)
+  | bottom : Surgery a b → (c : Wall) → Surgery (c ++ a) (c ++ b)
   | right: Surgery a b → (c : Tangle) → (h : a.length = c.val.length ∧ b.length = c.val.length) → Surgery (a.happend c.val h.left) (b.happend c.val h.right)
   | left: Surgery a b → (c : Tangle) → (h : c.val.length = a.length ∧ c.val.length = b.length) → Surgery (c.val.happend a h.left) (c.val.happend b h.right)
 
@@ -162,86 +219,81 @@ theorem surgery_boundary_eq : { w₁ w₂ : Wall } → Surgery w₁ w₂ → (ht
   := by
   intro a b srgy ta tb
   apply And.intro
-  . -- domain
+  checkpoint case left => -- domain
     induction srgy with
     | @top a b homt c h =>
       have h := (h (Tangle.append_tangle_fst ta) (Tangle.append_tangle_fst tb))
       have hlen := surgery_height_eq homt
-      simp [Tangle.domain]
-      cases ha : a <;> cases hb : b <;> try { rewrite [ha, hb] at hlen; simp at hlen }
-      case nil.nil => simp
-      case cons.cons h _ _ _ _ =>
-        simp [Tangle.domain]
-        simp [ha, hb, Tangle.domain] at h
-        exact h
-    | @bottom a b homt c h =>
+      cases a <;> cases b <;> try { simp at hlen }
+      case nil => simp
+      case cons h _ _ _ _ => exact h
+    | @bottom a b _ c h =>
       cases c with
-      | nil =>
-        simp [List.append] at ta
-        simp [List.append] at tb
-        have h := (h ta tb)
-        simp [Tangle.domain]
+      | nil => exact (h ta tb)
+      | cons hd tl => simp [Tangle.domain]
+
+    | @left a b _ c hlen h =>
+      -- for some reason I can't call apply Tangle.mk
+      cases c; case mk c hc =>
+
+      have h := (h (Tangle.happend_left_tangle ta hc) (Tangle.happend_left_tangle tb hc))
+      -- we want to tease out Bricks.domain statements from Tangle.domain
+      -- so split out cases to [], _::_
+      -- since all the lengths must be equal (hlen), we can remove a bunch of
+      -- absurd cases using contradictions
+      cases c <;> cases a <;> cases b <;> simp at hlen
+      case nil => trivial
+      case cons =>
+        simp [Tangle.domain, Wall.happend]
         simp [Tangle.domain] at h
-        exact h
-      | cons hd tl =>
-        simp [Tangle.domain]
+        -- have Bricks.domain ahd = Bricks.domain bhd
+        -- want Bricks.domain (chd++ahd) = Bricks.domain (chd++bhd)
+        repeat rewrite [Bricks.domain_append]
+        rewrite [h]
+        rfl
 
-    | @left a b homt c hlen h =>
-      simp [Tangle.domain]
-      have ta := Tangle.happend_left_tangle ta c.property
-      have tb := Tangle.happend_left_tangle tb c.property
-      have h := h ta tb
-      sorry
     | @right a b homt c hlen h =>
-      simp [Tangle.domain]
-      have ta := Tangle.happend_right_tangle ta c.property
-      have tb := Tangle.happend_right_tangle tb c.property
-      have h := h ta tb
-      sorry
+      cases c; case mk c hc =>
 
-  . -- codomain
+      have h := (h (Tangle.happend_right_tangle ta hc) (Tangle.happend_right_tangle tb hc))
+      cases c <;> cases a <;> cases b <;> simp at hlen
+      case nil => trivial
+      case cons =>
+        simp [Tangle.domain, Wall.happend]
+        simp [Tangle.domain] at h
+        repeat rewrite [Bricks.domain_append]
+        rewrite [h]
+        rfl
+
+  checkpoint case right => -- codomain
     induction srgy with
-    | @top a b homt c h =>
+    | @top a b _ c h =>
       cases c with
-      | nil =>
-        simp
-        exact (h (Tangle.append_tangle_fst ta) (Tangle.append_tangle_fst tb))
-      | cons =>
-        simp [Tangle.codomain]
-        rewrite [←List.append_eq, Tangle.last_codomain_append_nempty_snd _ _ List.noConfusion]
-        rewrite [←List.append_eq, Tangle.last_codomain_append_nempty_snd _ _ List.noConfusion]
-        exact Eq.refl _
+      | nil => simp; exact (h (Tangle.append_tangle_fst ta) (Tangle.append_tangle_fst tb))
+      | cons => repeat rewrite [Tangle.codomain_append_cons, Tangle.codomain_append_cons]; rfl
+
     | @bottom a b homt c h =>
       induction c with
-      | nil =>
-        have h := (h (Tangle.append_tangle_snd ta) (Tangle.append_tangle_snd tb))
-        simp [Tangle.codomain]
-        simp [Tangle.codomain] at h
-        exact h
+      | nil => exact (h (Tangle.append_tangle_snd ta) (Tangle.append_tangle_snd tb))
       | cons hd tl h =>
-        simp [Tangle.codomain]
-        rewrite [List.append] at ta
-        rewrite [List.append] at tb
-        have h := (h (Tangle.cons_tangle_tl ta) (Tangle.cons_tangle_tl tb))
-
-        have hlen : a.length = b.length := surgery_height_eq homt
-        cases ha : a <;> cases hb : b
-          -- dispatch cases where a.length ≠ b.length
-          <;> try { rewrite [ha, hb] at hlen; simp at hlen }
-        case nil.nil => simp
-        case cons.cons h _ _ _ _ =>
-          simp [Tangle.codomain] at h
-          rewrite [←List.cons_append, ←List.append_eq, Tangle.last_codomain_append_nempty_snd (hd::tl) _ List.noConfusion]
-          rewrite [←List.cons_append, ←List.append_eq, Tangle.last_codomain_append_nempty_snd (hd::tl) _ List.noConfusion]
-          rewrite [ha, hb, ←List.append_eq, ←List.append_eq] at h
-          rewrite [Tangle.last_codomain_append_nempty_snd tl _ List.noConfusion] at h
-          rewrite [Tangle.last_codomain_append_nempty_snd tl _ List.noConfusion] at h
+        cases a <;> cases b
+          <;> try { have hlen := surgery_height_eq homt; trivial }
+        case cons h _ _ _ _ =>
+          have h := (h (Tangle.cons_tangle_tl ta) (Tangle.cons_tangle_tl tb))
+          repeat rewrite [Tangle.codomain_append_cons]
+          repeat rewrite [Tangle.codomain_append_cons] at h
           exact h
 
-    | @left a b homt c hlen h =>
-      sorry
-    | @right a b homt c hlen h =>
-      sorry
+    | @left a b _ c hlen h =>
+      repeat rewrite [Tangle.happend_wall, Tangle.codomain_happend_add]
+      have h := h (Tangle.happend_left_tangle ta c.property) (Tangle.happend_left_tangle tb c.property)
+      rewrite [h]
+      rfl
+    | @right a b _ c hlen h =>
+      have h := h (Tangle.happend_right_tangle ta c.property) (Tangle.happend_right_tangle tb c.property)
+      repeat rewrite [Tangle.wall_happend, Tangle.codomain_happend_add]
+      rewrite [h]
+      rfl
 
 theorem homt_boundary_eq : { w₁ w₂ : Wall } → LocalHomotopic w₁ w₂ → (ht₁ : isTangle w₁) → (ht₂ : isTangle w₂)
   → Tangle.domain ⟨w₁, ht₁⟩ = Tangle.domain ⟨w₂, ht₂⟩ ∧ Tangle.codomain ⟨w₁, ht₁⟩ = Tangle.codomain ⟨w₂, ht₂⟩

@@ -1,3 +1,7 @@
+
+-- weirdly this is named List.List.append_eq ??
+theorem List.append_eq : {α : Type} → (as bs : List α) → List.append as bs = as ++ bs := List.List.append_eq
+
 inductive Brick : Type
   | Vert : Brick
   | Cap : Brick
@@ -41,34 +45,44 @@ def Brick.hflip : Brick → Brick := id
 theorem Brick.vflip_boundary (b : Brick) : b.vflip.domain = b.codomain ∧ b.vflip.codomain = b.domain := by
   cases b <;> simp
 
+def Bricks := List Brick
 
-def Bricks : Type := List Brick
+instance : Append Bricks := List.instAppendList
+-- want this for simp in proofs, allows us to translate first to List.append
+-- then List.append_eq simps to (Append List _).append a b
+-- otherwise stuff like [] ++ b won't simp because the ++ is the wrong type ((Append Bricks).append)
+@[simp] theorem Bricks.append_eq : {a b : Bricks} → a ++ b = List.append a b := rfl
 
 /-- input threads -/
 def Bricks.domain (bs : Bricks) : Nat := List.foldr Nat.add 0 (bs.map Brick.domain)
 /-- output threads -/
 def Bricks.codomain (bs : Bricks) : Nat := List.foldr Nat.add 0 (bs.map Brick.codomain)
 
-@[simp] theorem Bricks.domain_head_plus_domain_tail_eq_domain : Bricks.domain (b::bs) = b.domain + Bricks.domain bs := by
+@[simp] theorem Bricks.domain_cons : Bricks.domain (b::bs) = b.domain + Bricks.domain bs := by
   rewrite [domain, List.map, List.foldr, ←domain]
   apply Nat.add_eq
-@[simp] theorem Bricks.codomain_head_plus_codomain_tail_eq_codomain : Bricks.codomain (b::bs) = b.codomain + Bricks.codomain bs := by
+@[simp] theorem Bricks.codomain_cons : Bricks.codomain (b::bs) = b.codomain + Bricks.codomain bs := by
   rewrite [codomain, List.map, List.foldr, ←codomain]
   apply Nat.add_eq
+
+@[simp] theorem Bricks.domain_append : {a b : Bricks} → Bricks.domain (a ++ b) = Bricks.domain a + Bricks.domain b := by
+  intro a b
+  induction a with
+  | nil => simp [domain, List.foldr]
+  | cons hd tl h => simp; rewrite [h]; exact Eq.symm (Nat.add_assoc _ _ _)
+@[simp] theorem Bricks.codomain_append : {a b : Bricks} → Bricks.codomain (a ++ b) = Bricks.codomain a + Bricks.codomain b := by
+  intro a b
+  induction a with
+  | nil => simp [codomain, List.foldr]
+  | cons hd tl h => simp; rewrite [h]; exact Eq.symm (Nat.add_assoc _ _ _)
 
 def Bricks.vflip (bs : Bricks) : Bricks := List.map Brick.vflip bs
 def Bricks.hflip (bs : Bricks) : Bricks := (List.map Brick.hflip bs).reverse
 
 def Wall : Type := List Bricks
 
-def Wall.sliceBegin : Wall → Nat → Wall
-  | [], _ => []
-  | bs::w, 0 => bs::w
-  | _bs::w, i+1 => Wall.sliceBegin w i
-def Wall.sliceEnd : Wall → Nat → Wall
-  | [], _ => []
-  | bs::w, i => if w.length > i then bs::(Wall.sliceEnd w i) else []
-def Wall.slice (w : Wall) (i j : Nat) : Wall := Wall.sliceBegin (Wall.sliceEnd w j) i
+instance : Append Wall := List.instAppendList
+@[simp] theorem Wall.append_eq : {a b : Wall} → a ++ b = List.append a b := rfl
 
 def Wall.happend : (a b : Wall) → (a.length = b.length) →  Wall
   | [], [], _ => []
