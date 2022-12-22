@@ -25,3 +25,6 @@ Not quite sure about the following:
 [tangle]: Tangle.lean
 [link]: Link.lean
 [braid]: Braid.lean
+
+## References
+- Prathamesh, T. V. H. (2015). Formalising Knot Theory in Isabelle/HOL. Lecture Notes in Computer Science, 438–452. [doi:10.1007/978-3-319-22102-1_29](https://dx.doi.org/10.1007/978-3-319-22102-1_29) / [prathamesh-t/Tangle-Isabelle](https://github.com/prathamesh-t/Tangle-Isabelle/)
