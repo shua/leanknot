@@ -1,5 +1,5 @@
-import Basic
-import Tangle
+import Leanknot.Basic
+import Leanknot.Tangle
 open Brick
 
 structure Graph (α : Type) where
@@ -52,7 +52,7 @@ structure Acc where
 -- specialized List.zip which carries proof that lengths are equal
 def zip_eq (a b : List Nat) (leneq : a.length = b.length) : List (Nat × Nat) := match a, b with
   | [], [] => []
-  | a::a', b::b' => 
+  | a::a', b::b' =>
       have leneq' : a'.length = b'.length := by
         simp [List.length] at leneq
         assumption
@@ -91,19 +91,17 @@ theorem acc_bricks_io {bs : Bricks} {acc : Acc} :
       ((acc_bricks bs acc).I.length = acc.I.length + bs.domain)
     ∧ ((acc_bricks bs acc).O.length = acc.O.length + bs.codomain) := by
   induction bs
-  case nil => simp [acc_bricks, Bricks.domain, Bricks.codomain, List.foldr]
+  case nil => simp [acc_bricks, Bricks.domain, Bricks.codomain]
   case cons hd tl hind =>
-    simp [acc_bricks, List.length, Bricks.domain, Bricks.codomain, List.foldr]
-    rewrite [←Bricks.domain, ←Bricks.codomain]
     apply And.intro
-    case left =>
-      rewrite [Nat.add_comm hd.domain _, ←Nat.add_assoc]
-      rewrite [acc_brick_io.left, hind.left]
-      rfl
-    case right =>
-      rewrite [Nat.add_comm hd.codomain _, ←Nat.add_assoc]
-      rewrite [acc_brick_io.right, hind.right]
-      rfl
+    conv =>
+      rw [acc_bricks, acc_brick_io.left, hind.left]
+      simp [Bricks.domain, Nat.add_assoc]
+      rw [Nat.add_comm]
+    conv =>
+      rw [acc_bricks, acc_brick_io.right, hind.right]
+      simp [Bricks.domain, Nat.add_assoc]
+      rw [Nat.add_comm]
 
 
 def acc_tangle_aux (bs : Bricks) (w : Wall) (ht : isTangle (bs::w)) (acc : Acc) (domeq : bs.domain = acc.O.length) : Acc := match w, ht with
@@ -160,20 +158,20 @@ end Example
 end Graph
 
 
-theorem List.iota_length_eq_n {n : Nat} : (List.iota n).length = n := by
-  induction n
-  case zero =>
-    rewrite [List.iota, List.length]
-    exact Eq.refl _
-  case succ n ind =>
-    rewrite [List.iota, List.length, Nat.succ_eq_add_one, ind]
-    exact Eq.refl _
+-- theorem List.iota_length_eq_n {n : Nat} : (List.iota n).length = n := by
+--   induction n
+--   case zero =>
+--     rewrite [List.iota, List.length]
+--     exact Eq.refl _
+--   case succ n ind =>
+--     rewrite [List.iota, List.length, Nat.succ_eq_add_one, ind]
+--     exact Eq.refl _
 
 namespace Tangle
 /-- thread count is to tangle as link number is to links -/
 def thread_count (t : Tangle) : Nat :=
-  let acc0 : Graph.Acc := ⟨0, [], List.iota t.domain, []⟩
-  let acc := Graph.acc_tangle t acc0 (Eq.symm List.iota_length_eq_n)
+  let acc0 : Graph.Acc := ⟨0, [], List.range t.domain, []⟩
+  let acc := Graph.acc_tangle t acc0 (by simp [acc0])
   -- graph from edges
   let g := Graph.from_edges acc.E
   -- add any dangling verts, shouldn't happen with tangles?
@@ -187,9 +185,9 @@ def unknot : Tangle :=
     [Cap],
     [Cup]
   ]
-  ⟨unknot, by simp [isTangle]⟩
+  ⟨unknot, by simp [unknot, isTangle, Bricks.codomain, Bricks.domain]⟩
 
-#eval thread_count unknot
+-- #eval thread_count unknot
 
 
 def ltrefoil : Tangle :=
@@ -200,13 +198,13 @@ def ltrefoil : Tangle :=
     [Vert, Under, Vert],
     [Cup, Cup]
   ]
-  ⟨trefoil, by simp [isTangle]⟩
+  ⟨trefoil, by simp [trefoil, isTangle, Bricks.codomain, Bricks.domain, Brick.codomain, Brick.domain]⟩
 
-#eval List.iota ltrefoil.domain
-#eval Graph.acc_tangle ltrefoil ⟨0, [], List.iota ltrefoil.domain, []⟩ (Eq.symm List.iota_length_eq_n)
+-- #eval List.iota ltrefoil.domain
+-- #eval Graph.acc_tangle ltrefoil ⟨0, [], List.iota ltrefoil.domain, []⟩ (Eq.symm List.iota_length_eq_n)
 #eval Graph.subgraphs (Graph.from_edges [⟨0,1⟩, ⟨1,2⟩, ⟨2,0⟩])
-#eval Graph.subgraphs (Graph.from_edges (Graph.acc_tangle ltrefoil ⟨0, [], List.iota ltrefoil.domain, []⟩ (Eq.symm List.iota_length_eq_n)).E)
-#eval thread_count ltrefoil
+-- #eval Graph.subgraphs (Graph.from_edges (Graph.acc_tangle ltrefoil ⟨0, [], List.iota ltrefoil.domain, []⟩ (Eq.symm List.iota_length_eq_n)).E)
+-- #eval thread_count ltrefoil
 
 
 def hopf_link : Tangle :=
@@ -216,11 +214,10 @@ def hopf_link : Tangle :=
     [Vert, Over, Vert],
     [Cup, Cup]
   ]
-  ⟨hopf_link, by simp [isTangle]⟩
+  ⟨hopf_link, by simp [hopf_link, isTangle, Bricks.domain, Bricks.codomain]⟩
 
-#eval thread_count hopf_link
+-- #eval thread_count hopf_link
 
 end Example
 
 end Tangle
-

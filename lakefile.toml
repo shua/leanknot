@@ -1,0 +1,11 @@
+name = "leanknot"
+version = "0.1.0"
+defaultTargets = ["leanknot"]
+
+[[lean_lib]]
+name = "Leanknot"
+
+
+# [[lean_exe]]
+# name = "leanknot"
+# root = "Main"

@@ -1,5 +1,5 @@
-import Basic
-import Tangle
+import Leanknot.Basic
+import Leanknot.Tangle
 
 def isBraid : Wall → Prop
 | [] => true
@@ -30,4 +30,3 @@ def permute (b : Braid ) (as : List α) (hdom : b.tangle.domain = as.length) : L
   sorry
 
 end Braid
-

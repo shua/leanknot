@@ -1,7 +1,4 @@
 
--- weirdly this is named List.List.append_eq ??
-theorem List.append_eq : {α : Type} → (as bs : List α) → List.append as bs = as ++ bs := List.List.append_eq
-
 inductive Brick : Type
   | Vert : Brick
   | Cap : Brick
@@ -17,7 +14,7 @@ instance instLawfulEqBrick : LawfulBEq Brick where
   rfl {a} := by cases a <;> decide
 
 /-- input threads -/
-def Brick.domain : Brick → Nat
+@[simp] def Brick.domain : Brick → Nat
   | Vert => 1
   | Cap => 0
   | Cup => 2
@@ -25,7 +22,7 @@ def Brick.domain : Brick → Nat
   | Under => 2
 
 /-- output threads -/
-def Brick.codomain : Brick → Nat
+@[simp] def Brick.codomain : Brick → Nat
   | Vert => 1
   | Cap => 2
   | Cup => 0
@@ -33,21 +30,24 @@ def Brick.codomain : Brick → Nat
   | Under => 2
 
 /-- 180° rotation -/
-def Brick.vflip : Brick → Brick
+@[simp] def Brick.vflip : Brick → Brick
   | Vert => Vert
   | Cap => Cup
   | Cup => Cap
   | Over => Over
   | Under => Under
 
-def Brick.hflip : Brick → Brick := id
+@[simp] def Brick.hflip : Brick → Brick := id
 
 theorem Brick.vflip_boundary (b : Brick) : b.vflip.domain = b.codomain ∧ b.vflip.codomain = b.domain := by
   cases b <;> simp
 
+
 def Bricks := List Brick
 
-instance : Append Bricks := List.instAppendList
+instance : Append Bricks where
+  append := List.append
+
 -- want this for simp in proofs, allows us to translate first to List.append
 -- then List.append_eq simps to (Append List _).append a b
 -- otherwise stuff like [] ++ b won't simp because the ++ is the wrong type ((Append Bricks).append)
@@ -68,20 +68,21 @@ def Bricks.codomain (bs : Bricks) : Nat := List.foldr Nat.add 0 (bs.map Brick.co
 @[simp] theorem Bricks.domain_append : {a b : Bricks} → Bricks.domain (a ++ b) = Bricks.domain a + Bricks.domain b := by
   intro a b
   induction a with
-  | nil => simp [domain, List.foldr]
-  | cons hd tl h => simp; rewrite [h]; exact Eq.symm (Nat.add_assoc _ _ _)
+  | nil => simp [domain]
+  | cons hd tl h => simp; simp at h; rewrite [h]; exact Eq.symm (Nat.add_assoc _ _ _)
 @[simp] theorem Bricks.codomain_append : {a b : Bricks} → Bricks.codomain (a ++ b) = Bricks.codomain a + Bricks.codomain b := by
   intro a b
   induction a with
-  | nil => simp [codomain, List.foldr]
-  | cons hd tl h => simp; rewrite [h]; exact Eq.symm (Nat.add_assoc _ _ _)
+  | nil => simp [codomain]
+  | cons hd tl h => simp; simp at h; rewrite [h]; exact Eq.symm (Nat.add_assoc _ _ _)
 
 def Bricks.vflip (bs : Bricks) : Bricks := List.map Brick.vflip bs
 def Bricks.hflip (bs : Bricks) : Bricks := (List.map Brick.hflip bs).reverse
 
 def Wall : Type := List Bricks
 
-instance : Append Wall := List.instAppendList
+instance : Append Wall where
+  append := List.append
 @[simp] theorem Wall.append_eq : {a b : Wall} → a ++ b = List.append a b := rfl
 
 def Wall.happend : (a b : Wall) → (a.length = b.length) →  Wall
@@ -93,17 +94,14 @@ def Wall.happend : (a b : Wall) → (a.length = b.length) →  Wall
 def Wall.vflip (w : Wall) : Wall := (List.map Bricks.vflip w).reverse
 def Wall.hflip (w : Wall) : Wall := (List.map Bricks.hflip w)
 
-
 namespace Equivalence
 def vert_bricks (n : Nat) : Bricks := List.replicate n Vert
 
 theorem verts_dom_eq_codom (n : Nat) : (vert_bricks n).domain = (vert_bricks n).codomain := by
   induction n with
-  | zero => simp
+  | zero => simp [vert_bricks, Bricks.domain, Bricks.codomain]
   | succ _ h =>
-    simp [vert_bricks, List.replicate, Brick.domain, Brick.codomain]
-    rewrite [←vert_bricks, h]
-    rfl
+    simp [vert_bricks, List.replicate, Bricks.domain, Bricks.codomain]
 
 /--
 Planar isotopic mappings
@@ -162,4 +160,3 @@ inductive ReidemeisterMove : Wall → Wall → Prop
                   [[Vert, Over], [Under, Vert], [Vert, Under]]
 
 end Equivalence
-

@@ -1,6 +1,6 @@
-import Basic
-import Tangle
-import Graph
+import Leanknot.Basic
+import Leanknot.Tangle
+import Leanknot.Graph
 
 open Brick
 
@@ -33,7 +33,6 @@ theorem is_tangle {w : Wall} : isLink w → isTangle w := by
   | cons bs w =>
     rewrite [isLink]
     -- again don't know how to go from (match true | true => a) to just a
-    simp
     intro hl
     exact is_tangle_aux hl.right
 
@@ -46,4 +45,3 @@ end Link
 
 -- here it is folks
 def Knot := { l : Link // l.link_number = 1 }
-

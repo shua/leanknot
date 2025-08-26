@@ -1,4 +1,4 @@
-import Basic
+import Leanknot.Basic
 open Brick
 
 -- a wall is a tangle if, for every two rows of bricks,
@@ -12,12 +12,8 @@ def Tangle := { w : Wall // isTangle w }
 
 namespace Tangle
 
-def domain (t : Tangle) : Nat := match t.val with
-  | [] => 0
-  | bs::_ => bs.domain
-def codomain (t : Tangle) : Nat := match t.val with
-  | [] => 0
-  | hd::tl => Bricks.codomain (tl.getLastD hd)
+def domain (t : Tangle) : Nat := (t.val.head?.map Bricks.domain).getD 0
+def codomain (t : Tangle) : Nat := (t.val.getLast?.map Bricks.codomain).getD 0
 
 theorem cons_tangle_tl : isTangle (hd::tl) → isTangle tl := by
   intro t
@@ -42,30 +38,38 @@ theorem append_tangle_snd : isTangle (a ++ b) → isTangle b := by
       | cons => exact t.right
     | cons => exact hind t.right
 
+theorem codomain_cons {bs: Bricks} {w: Wall} {ht: isTangle (bs::w)} : w ≠ [] → Tangle.codomain ⟨bs::w, ht⟩ = Tangle.codomain ⟨w, cons_tangle_tl ht⟩ := by
+  intro w_nonempty
+  cases w with
+  | nil => contradiction
+  | cons whd wtl =>
+    simp [codomain]
+
 theorem codomain_append {a b : Wall} {ht : isTangle (a ++ b)} : b ≠ [] → Tangle.codomain ⟨a ++ b, ht⟩ = Tangle.codomain ⟨b, append_tangle_snd ht⟩ := by
-  intros
-  cases a with
-  | nil => simp
-  | cons =>
-    cases b with
-    | nil => contradiction
-    | cons =>
-      simp [Tangle.codomain]
-      -- there's very litte in stdlib for getLast proofs
-      have last_append_cons {α : Type} {hd j: α} {tl k: List α} : List.getLastD (k++(hd::tl)) j = List.getLastD tl hd := by
-        have get_last_d_cons {α : Type} {hd j: α} {tl : List α} : List.getLastD (hd::tl) j = List.getLastD tl hd := by
-          induction tl with
-          | nil => simp [List.getLastD, List.getLast]
-          | cons => simp [List.getLastD, List.getLast]
-        revert j
-        induction k with
-        | nil => simp [get_last_d_cons]
-        | cons _ _ h =>
-          intro
-          rewrite [List.cons_append, get_last_d_cons, h]
-          rfl
-      rewrite [last_append_cons]
-      rfl
+  -- goal: codomain ⟨a ++ b, ht⟩ = codomain ⟨b, ...⟩
+  -- since the codomain is calculated based on the last row of the tangle, if any suffix of two tangles is equivalent
+  -- then their codomains are equal
+  intro b_nonempty
+  cases b with
+  | nil => contradiction
+  | cons bhd btl =>
+    induction a with
+    | nil => simp
+    | cons ahd atl ih =>
+      simp
+      rw [codomain_cons]
+      have : isTangle (atl ++ bhd :: btl) := by
+        have is_tangle_cons : isTangle (ahd :: (atl ++ bhd :: btl)) := by
+          rw [←List.cons_append]
+          assumption
+        exact cons_tangle_tl is_tangle_cons
+      exact ih
+
+      -- some followup proof?
+      have : atl ++ bhd :: btl  ≠ [] := by
+        exact List.append_ne_nil_of_right_ne_nil atl b_nonempty
+      assumption
+
 
 @[simp] theorem codomain_append_cons : {a : List Bricks} → {ht: isTangle (a ++ (hd::b))} →
   Tangle.codomain ⟨a ++ (hd::b), ht⟩ = Tangle.codomain ⟨hd::b, append_tangle_snd ht⟩ := Tangle.codomain_append List.noConfusion
@@ -74,27 +78,38 @@ def happend_tangle : (a b : Wall) → (hlen : a.length = b.length) → isTangle 
   intro a
   induction a <;> intro b <;> cases b <;> try { intro hlen; contradiction }
   case nil.nil => intros; simp [Wall.happend, isTangle]
-  case cons.cons ahd atl h bhd btl =>
-    cases atl <;> cases btl <;> try { intro hlen; simp at hlen; contradiction; }
+  case cons.cons ahd atl ih bhd btl =>
+    cases atl <;> cases btl <;> try { intro hlen; simp at hlen }
     case nil.nil => intros; simp [Wall.happend, isTangle]
     case cons.cons ahd' atl bhd' btl =>
       intro hlen ta tb
       simp [Wall.happend, isTangle]
       apply And.intro
       case right =>
-        have h' := h (bhd'::btl) (by simp; simp at hlen; exact hlen) (by simp [isTangle] at ta; exact ta.right) (by simp [isTangle] at tb; exact tb.right)
-        simp [Wall.happend] at h'
-        exact h'
+        have cons_len : (ahd'::atl).length = (bhd'::btl).length := by
+          simp; simp at hlen; exact hlen
+        have ta' : isTangle (ahd'::atl) := by simp [isTangle] at ta; exact ta.right
+        have tb' : isTangle (bhd'::btl) := by simp [isTangle] at tb; exact tb.right
+        have ih' : isTangle (Wall.happend (ahd'::atl) (bhd'::btl) cons_len) :=
+          ih (bhd'::btl) cons_len ta' tb'
+        simp [Wall.happend] at ih'
+        exact ih'
       case left =>
         have foldr_distr (a b : List Brick) (f : Brick → Nat) : ((a++b).map f).foldr Nat.add 0 = (a.map f).foldr Nat.add 0 + (b.map f).foldr Nat.add 0 := by
           induction a with
-          | nil => simp [List.map, List.foldr]
-          | cons hd tl h => rewrite [List.cons_append]; simp [List.map, List.foldr]; rewrite [h, Nat.add_assoc]; rfl
-        rewrite [Bricks.codomain, Bricks.domain]
+          | nil => simp [List.map]
+          | cons hd tl h =>
+            rw [List.cons_append]
+            simp [List.map]
+            rw [Nat.add_assoc, ←h]
+            simp
+
+        rw [Bricks.codomain, Bricks.domain]
         repeat rewrite [foldr_distr]
         repeat rewrite [←Bricks.codomain, ←Bricks.domain]
         rewrite [ta.left, tb.left]
         rfl
+
 
 def happend (a b : Tangle) (hlen : a.val.length = b.val.length) : Tangle where
   val := Wall.happend a.val b.val hlen
@@ -107,10 +122,11 @@ theorem happend_left_tangle {a b : Wall} {hlen : a.length = b.length} : isTangle
   | nil => intro b; intros; cases b <;> trivial
   | cons ahd a h =>
     intro b; cases b <;> intros <;> try { trivial }
-    case cons bhd b hlen _ _ =>
+    case cons.cons bhd b hlen _ _ =>
     -- need to prove (isTangle ((ahd::a).happend (bhd::b))) → isTangle (ahd::a) → isTangle b → isTangle (bhd::b)
-    cases a <;> cases b <;> try { simp at hlen; trivial }
-    case cons ahd' a ta bhd' b tapp =>
+    cases a <;> cases b <;> try { simp at hlen }
+    case nil.nil => trivial
+    case cons.cons ahd' a ta bhd' b tapp =>
     have h := by
       have hlen' : (ahd'::a).length = (bhd'::b).length := by
         rewrite [List.length] at hlen
@@ -128,6 +144,8 @@ theorem happend_left_tangle {a b : Wall} {hlen : a.length = b.length} : isTangle
 
     exact And.intro tbl h
 
+  -- sorry
+
 theorem happend_right_tangle {a b : Wall} {hlen : a.length = b.length} : isTangle (Wall.happend a b hlen) → isTangle b → isTangle a := by
   sorry
 
@@ -138,7 +156,7 @@ theorem happend_right_tangle {a b : Wall} {hlen : a.length = b.length} : isTangl
   ⟨(t.val.happend w hlen), tapp⟩ = Tangle.happend t ⟨w, (happend_left_tangle tapp t.property)⟩ hlen
 := sorry
 
-@[simp] theorem domain_happend_add {a b : Tangle} {hlen: a.val.length = b.val.length}: 
+@[simp] theorem domain_happend_add {a b : Tangle} {hlen: a.val.length = b.val.length}:
   Tangle.domain (a.happend b hlen) = Tangle.domain a + Tangle.domain b := by sorry
 @[simp] theorem codomain_happend_add {a b : Tangle} {hlen: a.val.length = b.val.length}:
   Tangle.codomain (a.happend b hlen) = Tangle.codomain a + Tangle.codomain b := by sorry
@@ -173,12 +191,11 @@ inductive Homotopic : Wall → Wall → Prop
 
 theorem verts_boundary_eq_n { n : Nat } : Bricks.domain (vert_bricks n) = n ∧ Bricks.codomain (vert_bricks n) = n := by
   induction n with
-  | zero => simp
+  | zero => simp [vert_bricks, Bricks.domain, Bricks.codomain]
   | succ n' h =>
-      simp [vert_bricks]
-      rewrite [←vert_bricks, h.left, Brick.domain, h.right, Brick.codomain]
-      -- don't know how to simplify '(match true with |true => a |false => b)' to 'a'
-      simp
+      simp [vert_bricks, List.replicate, Bricks.domain, Bricks.codomain]
+      simp [vert_bricks, Bricks.domain, Bricks.codomain] at h
+      rewrite [h]
       apply Nat.add_comm
 
 -- height_eq is useful because Wall.happend requires it (and LocalHomotopic.left/right use happend)
@@ -219,7 +236,7 @@ theorem surgery_boundary_eq : { w₁ w₂ : Wall } → Surgery w₁ w₂ → (ht
   := by
   intro a b srgy ta tb
   apply And.intro
-  checkpoint case left => -- domain
+  case left => -- domain
     induction srgy with
     | @top a b homt c h =>
       have h := (h (Tangle.append_tangle_fst ta) (Tangle.append_tangle_fst tb))
@@ -265,7 +282,7 @@ theorem surgery_boundary_eq : { w₁ w₂ : Wall } → Surgery w₁ w₂ → (ht
         rewrite [h]
         rfl
 
-  checkpoint case right => -- codomain
+  case right => -- codomain
     induction srgy with
     | @top a b _ c h =>
       cases c with
@@ -317,12 +334,13 @@ theorem homt_boundary_eq : { w₁ w₂ : Wall } → LocalHomotopic w₁ w₂ →
 
 theorem piso_tangle_inv : { a b : Wall } → PlanarIsotopic a b → (isTangle a = isTangle b) := by
   intro a b m
-  induction m <;> simp [isTangle]
-  case slide => rewrite [verts_boundary_eq_n.left, verts_boundary_eq_n.right]; simp
+  induction m <;> simp [isTangle, codomain, Bricks.codomain, domain, Bricks.domain]
+  -- case slide => rewrite [verts_boundary_eq_n.left, verts_boundary_eq_n.right]; simp
+  case slide => sorry
 
 theorem rmove_tangle_inv : { a b : Wall } → ReidemeisterMove a b → (isTangle a = isTangle b) := by
   intro a b m
-  induction m <;> simp [isTangle]
+  induction m <;> simp [isTangle, codomain, Bricks.codomain, domain, Bricks.domain]
 
 theorem surgery_tangle_inv : { a b : Wall } → Surgery a b → (isTangle a = isTangle b) := by
   intro a b m
@@ -339,4 +357,3 @@ theorem homt_tangle_inv : { a b : Wall } → LocalHomotopic a b → (isTangle a 
   | trans _ _ tab tbc => rewrite [tab, tbc]; rfl
 
 end Equivalence
-
